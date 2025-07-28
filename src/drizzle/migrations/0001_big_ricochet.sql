@@ -1,0 +1,1 @@
+ALTER TABLE "doctorsTable" ADD COLUMN "availability" jsonb DEFAULT '[]'::jsonb NOT NULL;

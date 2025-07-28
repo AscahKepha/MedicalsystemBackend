@@ -1,0 +1,198 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteUser = exports.updateUser = exports.createUser = exports.getUserById = exports.getUsers = void 0;
+const user_service_1 = require("./user.service");
+// GET all users (admin only — enforced via route middleware)
+const getUsers = async (req, res) => {
+    try {
+        const allUsers = await (0, user_service_1.getUsersServices)();
+        if (!allUsers || allUsers.length === 0) {
+            console.log(allUsers);
+            res.status(404).json({ message: "No users found" });
+            return;
+        }
+        const usersWithoutPasswords = allUsers.map(({ password, ...user }) => user);
+        res.status(200).json(usersWithoutPasswords);
+        return;
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || "Failed to fetch users" });
+        return;
+    }
+};
+exports.getUsers = getUsers;
+// GET user by ID (admin can access any, patient can only access their own)
+const getUserById = async (req, res) => {
+    const requestedId = parseInt(req.params.id);
+    if (isNaN(requestedId)) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
+    try {
+        const requester = req.user;
+        if (requester?.role === "patient" && parseInt(requester.userId.toString()) !== requestedId) {
+            res.status(403).json({ error: "Forbidden: patients can only access their own profile" });
+            return;
+        }
+        const user = await (0, user_service_1.getUserByIdServices)(requestedId);
+        if (!user) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+        const { password, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
+        return;
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || "Failed to fetch user" });
+        return;
+    }
+};
+exports.getUserById = getUserById;
+// 🧪 POST create user (public or admin, no role check here)
+const createUser = async (req, res) => {
+    const { firstName, lastName, email, password, contactPhone, address } = req.body;
+    if (!firstName || !lastName || !email || !password || !contactPhone || !address) {
+        res.status(400).json({ error: "All fields are required" });
+        return;
+    }
+    try {
+        const newUser = await (0, user_service_1.createUserServices)({ firstName, lastName, email, password, contactPhone, address });
+        if (!newUser) {
+            res.status(500).json({ message: "Failed to create user" });
+            return;
+        }
+        res.status(201).json({ message: newUser });
+        return;
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || "Failed to create user" });
+        return;
+    }
+};
+exports.createUser = createUser;
+const schema_1 = require("../drizzle/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const db_1 = __importDefault(require("../drizzle/db"));
+// adjust as needed
+const updateUser = async (req, res) => {
+    const requestedId = parseInt(req.params.id);
+    console.log("🔍 Requested user ID:", requestedId);
+    if (isNaN(requestedId)) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
+    const { firstName, lastName, email, password, address, contactPhone, specialization, isAvailable, availability, } = req.body;
+    console.log("📥 Incoming update payload:", req.body);
+    if (!firstName || !lastName || !email || !contactPhone) {
+        res.status(400).json({
+            error: "Required fields missing: firstName, lastName, email, or contactPhone",
+        });
+        return;
+    }
+    try {
+        const requester = req.user;
+        console.log("👤 Authenticated requester:", requester);
+        if (requester?.role === "patient" &&
+            parseInt(requester.userId.toString()) !== requestedId) {
+            res.status(403).json({
+                error: "Forbidden: patients can only update their own profile",
+            });
+            return;
+        }
+        // Step 1: Update the main user table
+        const userUpdates = {
+            firstName,
+            lastName,
+            email,
+            contactPhone,
+            address: address || null,
+        };
+        if (password && password.trim() !== "") {
+            userUpdates.password = password;
+        }
+        const updatedUser = await (0, user_service_1.updateUserServices)(requestedId, userUpdates);
+        if (!updatedUser) {
+            res
+                .status(404)
+                .json({ error: "User not found or failed to update" });
+            return;
+        }
+        // Step 2: If role is doctor, update doctor profile
+        if (requester?.role === "doctor") {
+            console.log("🩺 Updating doctor profile...");
+            // Validate availability format if provided
+            let parsedAvailability = undefined;
+            if (availability) {
+                try {
+                    parsedAvailability = Array.isArray(availability)
+                        ? availability
+                        : JSON.parse(availability);
+                }
+                catch (err) {
+                    res.status(400).json({ error: "Invalid availability format" });
+                    return;
+                }
+            }
+            await db_1.default
+                .update(schema_1.doctorsTable)
+                .set({
+                firstName,
+                lastName,
+                specialization: specialization || undefined,
+                contactPhone,
+                isAvailable: isAvailable === true || isAvailable === "true",
+                availability: parsedAvailability || [],
+                updatedAt: new Date(),
+            })
+                .where((0, drizzle_orm_1.eq)(schema_1.doctorsTable.userId, requestedId));
+        }
+        console.log("✅ Profile update successful");
+        res.status(200).json({ message: "Profile updated successfully" });
+        return;
+    }
+    catch (error) {
+        console.error("❌ Update error:", error);
+        res
+            .status(500)
+            .json({ error: error.message || "Failed to update user" });
+        return;
+    }
+};
+exports.updateUser = updateUser;
+// 🗑️ DELETE user (admin can delete any, patient can only delete self)
+const deleteUser = async (req, res) => {
+    const requestedId = parseInt(req.params.id);
+    if (isNaN(requestedId)) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
+    try {
+        const requester = req.user;
+        if (!requester) {
+            res.status(401).json({ error: "Unauthorized: no user information found in request" });
+            return;
+        }
+        const isOwner = parseInt(requester.userId.toString()) === requestedId;
+        const isAdmin = requester.role === "admin";
+        if (!isOwner && !isAdmin) {
+            res.status(403).json({ error: "Forbidden: you cannot delete another user's account" });
+            return;
+        }
+        const deletedUser = await (0, user_service_1.deleteUserServices)(requestedId);
+        if (!deletedUser) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+        res.status(200).json({ message: "User deleted successfully" });
+        return;
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message || "Failed to delete user" });
+        return;
+    }
+};
+exports.deleteUser = deleteUser;
