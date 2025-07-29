@@ -1,5 +1,5 @@
 {
-  "id": "12589d20-9b41-4c96-a1f1-1e82e2ce10b4",
+  "id": "c2ddd847-be6f-4533-9195-481644c2be21",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -56,6 +56,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'0.00'"
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         },
         "appointmentStatus": {
           "name": "appointmentStatus",
@@ -263,6 +269,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "availability": {
+          "name": "availability",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -499,6 +512,18 @@
         "notes": {
           "name": "notes",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issue_date": {
+          "name": "issue_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiry_date": {
+          "name": "expiry_date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },

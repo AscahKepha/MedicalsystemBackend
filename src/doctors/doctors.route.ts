@@ -6,7 +6,7 @@ export const doctorsRouter = Router();
 // doctors routes definition
 
 
-// Get all doctorss
+// Get all doctors
 doctorsRouter.get('/doctors', getDoctors);
 
 // Get doctors by ID
@@ -16,8 +16,13 @@ doctorsRouter.get('/doctors/:id', allRoleAuth, getDoctorsById);
 doctorsRouter.post('/doctors', adminRoleAuth, createDoctors);
 
 // Update an existing doctors
-doctorsRouter.put('/doctors/:id',adminRoleAuth, updateDoctors);
+doctorsRouter.put('/doctors/:id', adminRoleAuth, updateDoctors);
 
 
 // Delete an existing doctors
-doctorsRouter.delete('/doctors/:id',adminRoleAuth, deleteDoctors);
+doctorsRouter.delete('/doctors/:id', adminRoleAuth, deleteDoctors);
+
+
+import { getDoctorByUserId } from "./doctors.controller";
+
+doctorsRouter.get("/doctors/user/:userId", getDoctorByUserId); // Example: GET /api/doctors/user/9

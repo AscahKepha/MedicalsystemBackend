@@ -38,3 +38,15 @@ export const deleteDoctorsServices = async(doctorsId: number):Promise<string> =>
    await db.delete(doctorsTable).where(eq(doctorsTable.doctorId,doctorsId));
    return "doctors Delete Sucessfully";
 }
+
+// This returns a single doctor by the associated userId
+export const getDoctorByUserIdServices = async (userId: number) => {
+  const result = await db.query.doctorsTable.findFirst({
+    where: eq(doctorsTable.userId, userId),
+    with: {
+      user: true, // Optional: includes user details
+    },
+  });
+  return result;
+};
+

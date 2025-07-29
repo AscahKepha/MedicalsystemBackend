@@ -1,1 +1,0 @@
-ALTER TABLE "appointmentsTable" ADD COLUMN "reason" varchar(255);

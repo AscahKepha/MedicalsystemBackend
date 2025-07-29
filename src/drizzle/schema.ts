@@ -120,6 +120,9 @@ export const prescriptionsTable = pgTable("prescriptionsTable", {
   doctorId: integer("doctorId").references(() => doctorsTable.doctorId, { onDelete: "set null" }),
   patientId: integer("patientId").references(() => patientsTable.patientId, { onDelete: "set null" }),
   notes: text("notes"),
+  // You might want to add totalAmount, issueDate, expiryDate here if they're part of the backend
+  issueDate: timestamp("issue_date").notNull(),
+  expiryDate: timestamp("expiry_date"), // Optional
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
 });

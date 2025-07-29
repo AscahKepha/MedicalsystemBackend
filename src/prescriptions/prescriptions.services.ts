@@ -1,54 +1,189 @@
-//crud operations and services
-import {eq, desc} from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import db from "../drizzle/db";
-import {prescriptionsTable, TPrescriptionsSelect, TPrescriptionsInsert} from "../drizzle/schema";
+import {
+  prescriptionsTable,
+  patientsTable,
+  type TPrescriptionsSelect,
+  type TPrescriptionsInsert,
+} from "../drizzle/schema";
 
-
-//CRUD Operations for prescriptions entity
-
-
-//Get all prescriptionss
-export const getPrescriptionssServices = async():Promise<TPrescriptionsSelect[] | null> => {
-     return await  db.query.prescriptionsTable.findMany({
-       orderBy:[desc(prescriptionsTable.prescriptionId)]
-     });
-}
-
-//Get prescriptions by ID
-export const getPrescriptionsByIdServices = async(prescriptionId: number):Promise<TPrescriptionsSelect | undefined>=> {
-      return await db.query.prescriptionsTable.findFirst({
-        where: eq(prescriptionsTable.prescriptionId,prescriptionId)
-      }) 
-}
-
-//get prescriptions by patientId
-export const getPrescriptionsByPatientIdServices = async (patientId: number):Promise<TPrescriptionsSelect[] | null> =>{ //findfirst must hsve undefined if it's values are not there
+// ----------------------
+// ✅ Get ALL prescriptions with doctor, patient, and appointment info
+// ----------------------
+export const getPrescriptionssServices = async (): Promise<any[] | null> => {
   return await db.query.prescriptionsTable.findMany({
-    where: eq(prescriptionsTable.patientId, patientId)
-  })
-}
+    orderBy: [desc(prescriptionsTable.prescriptionId)],
+    with: {
+      doctor: {
+        with: {
+          user: true, // 👨‍⚕️ doctor user info
+        },
+      },
+      patient: {
+        with: {
+          user: true, // 👩‍💼 patient user info
+        },
+      },
+      appointment: true, // 🗓️ appointment details
+    },
+  });
+};
 
-//get prescriptions by doctorId
-export const getPrescriptionsByDoctorIdServices = async (doctorId: number):Promise<TPrescriptionsSelect[] | null> =>{
+// ----------------------
+// ✅ Get ONE prescription by ID (with relations)
+// ----------------------
+export const getPrescriptionsByIdServices = async (
+  prescriptionId: number
+): Promise<any | undefined> => {
+  return await db.query.prescriptionsTable.findFirst({
+    where: eq(prescriptionsTable.prescriptionId, prescriptionId),
+    with: {
+      doctor: {
+        with: {
+          user: true,
+        },
+      },
+      patient: {
+        with: {
+          user: true,
+        },
+      },
+      appointment: true,
+    },
+  });
+};
+
+// ----------------------
+// ✅ Get prescriptions by PATIENT ID (with relations)
+// ----------------------
+export const getPrescriptionsByPatientIdServices = async (
+  patientId: number
+): Promise<any[] | null> => {
   return await db.query.prescriptionsTable.findMany({
-    where: eq(prescriptionsTable.doctorId, doctorId)
-  })
-}
+    where: eq(prescriptionsTable.patientId, patientId),
+    with: {
+      doctor: {
+        with: {
+          user: true,
+        },
+      },
+      appointment: true,
+    },
+  });
+};
 
-// Create a new prescriptions
-export const createPrescriptionsServices = async(prescriptions:TPrescriptionsInsert):Promise<string> => {
-       await db.insert(prescriptionsTable).values(prescriptions).returning();
-        return "prescriptions Created Successfully 😎"
-}
+// ----------------------
+// ✅ Get prescriptions by DOCTOR ID (with relations)
+// ----------------------
+export const getPrescriptionsByDoctorIdServices = async (
+  doctorId: number
+): Promise<any[] | null> => {
+  return await db.query.prescriptionsTable.findMany({
+    where: eq(prescriptionsTable.doctorId, doctorId),
+    with: {
+      patient: {
+        with: {
+          user: true,
+        },
+      },
+      appointment: true,
+    },
+  });
+};
 
-// Update an existing prescriptions
-export const updatePrescriptionsServices = async(prescriptionId: number, prescriptions:TPrescriptionsInsert):Promise<string> => {
-    await db.update(prescriptionsTable).set(prescriptions).where(eq(prescriptionsTable.prescriptionId,prescriptionId));
-    return "prescriptions Updated Succeffully 😎";
-}
+// ----------------------
+// ✅ Get prescriptions by USER ID (via patientId + relations)
+// ----------------------
+export const getPrescriptionsByUserIdServices = async (
+  userId: number
+): Promise<any[] | null> => {
+  const patient = await db
+    .select({ patientId: patientsTable.patientId })
+    .from(patientsTable)
+    .where(eq(patientsTable.userId, userId))
+    .limit(1);
 
-//delete prescriptions
-export const deletePrescriptionsServices = async(prescriptionId: number):Promise<string> => {
-   await db.delete(prescriptionsTable).where(eq(prescriptionsTable.prescriptionId,prescriptionId));
-   return "prescriptions deleted Sucessfully";
-}
+  if (patient.length === 0) {
+    console.warn("❌ No patient found for userId:", userId);
+    return null;
+  }
+
+  const patientId = patient[0].patientId;
+
+  return await db.query.prescriptionsTable.findMany({
+    where: eq(prescriptionsTable.patientId, patientId),
+    with: {
+      doctor: {
+        with: {
+          user: true,
+        },
+      },
+      appointment: true,
+    },
+  });
+};
+
+// ----------------------
+// ✅ Get prescriptions by doctorId AND patientId (with relations)
+// ----------------------
+export const getPrescriptionsByDoctorAndPatientServices = async (
+  doctorId: number,
+  patientId: number
+): Promise<any[]> => {
+  return await db.query.prescriptionsTable.findMany({
+    where: and(
+      eq(prescriptionsTable.doctorId, doctorId),
+      eq(prescriptionsTable.patientId, patientId)
+    ),
+    with: {
+      doctor: {
+        with: {
+          user: true,
+        },
+      },
+      patient: {
+        with: {
+          user: true,
+        },
+      },
+      appointment: true,
+    },
+    orderBy: [desc(prescriptionsTable.prescriptionId)],
+  });
+};
+
+// ----------------------
+// ✅ Create prescription
+// ----------------------
+export const createPrescriptionsServices = async (
+  prescription: TPrescriptionsInsert
+): Promise<string> => {
+  await db.insert(prescriptionsTable).values(prescription).returning();
+  return "✅ Prescription created successfully!";
+};
+
+// ----------------------
+// ✅ Update prescription
+// ----------------------
+export const updatePrescriptionsServices = async (
+  prescriptionId: number,
+  prescription: TPrescriptionsInsert
+): Promise<string> => {
+  await db
+    .update(prescriptionsTable)
+    .set(prescription)
+    .where(eq(prescriptionsTable.prescriptionId, prescriptionId));
+  return "✅ Prescription updated successfully!";
+};
+
+// ----------------------
+// ✅ Delete prescription
+// ----------------------
+export const deletePrescriptionsServices = async (
+  prescriptionId: number
+): Promise<string> => {
+  await db
+    .delete(prescriptionsTable)
+    .where(eq(prescriptionsTable.prescriptionId, prescriptionId));
+  return "🗑️ Prescription deleted successfully!";
+};

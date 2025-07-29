@@ -1,30 +1,55 @@
 import { Router } from "express";
-import { createprescriptions, deletePrescriptions, getPrescriptionById, getPrescriptions, getPrescriptionsByDoctorId, getPrescriptionsByPatientId, updatePrescriptions } from "./prescriptions.controller";
-import { adminRoleAuth, allRoleAuth, patientRoleAuth, doctorRoleAuth } from "../middleware/bearAuth";
+import {
+    createprescriptions,
+    deletePrescriptions,
+    getPrescriptionById,
+    getPrescriptions,
+    getPrescriptionsByDoctorId,
+    getPrescriptionsByPatientId,
+    getPrescriptionsByUserId, // 👈 import the new controller
+    updatePrescriptions
+} from "./prescriptions.controller";
+
+import {
+    adminRoleAuth,
+    allRoleAuth,
+    patientRoleAuth,
+    doctorRoleAuth
+} from "../middleware/bearAuth";
 
 export const prescriptionsRouter = Router();
 
-// prescription routes definition
+// 🔒 Admin only - Get all prescriptions
+prescriptionsRouter.get('/prescriptions', getPrescriptions);// adminRoleAuth,
 
-
-// Get all prescriptions
-prescriptionsRouter.get('/prescriptions',adminRoleAuth, getPrescriptions);
-
-// Get prescription by ID
+// 🔓 All roles - Get prescription by ID
 prescriptionsRouter.get('/prescriptions/:id', allRoleAuth, getPrescriptionById);
 
-//Get specifiec doctor appointments
-prescriptionsRouter.get('/doctors/:doctorId/prescriptions', doctorRoleAuth, getPrescriptionsByDoctorId)
+// 🩺 Doctor - Get prescriptions by doctor ID
+prescriptionsRouter.get('/doctors/:doctorId/prescriptions', doctorRoleAuth, getPrescriptionsByDoctorId);
 
-//Get specific Patient appointments
-prescriptionsRouter.get('/patients/:patientId/prescriptions', patientRoleAuth, getPrescriptionsByPatientId)
+// 🧑‍🦽 Patient - Get prescriptions by patient ID
+prescriptionsRouter.get('/patients/:patientId/prescriptions', patientRoleAuth, getPrescriptionsByPatientId);
 
-// Create a new prescription
+// 👤 Patient - Get prescriptions using userId (requires mapping)
+prescriptionsRouter.get('/users/:userId/prescriptions', getPrescriptionsByUserId); // ✅ NEW //patientRoleAuth,
+
+// 📝 Doctor - Create a new prescription
 prescriptionsRouter.post('/prescriptions', doctorRoleAuth, createprescriptions);
 
-// Update an existing prescription
-prescriptionsRouter.put('/prescriptions/:id',doctorRoleAuth, updatePrescriptions);
+// ✏️ Doctor - Update an existing prescription
+prescriptionsRouter.put('/prescriptions/:id', doctorRoleAuth, updatePrescriptions);
+
+// ❌ Admin - Delete a prescription
+prescriptionsRouter.delete('/prescriptions/:id', adminRoleAuth, deletePrescriptions);
+
+import { getDoctorIdByUserId } from "./prescriptions.controller";
+
+prescriptionsRouter.get("/doctor-id/by-user/:userId", getDoctorIdByUserId);
 
 
-// Delete an existing prescription
-prescriptionsRouter.delete('/prescriptions/:id',adminRoleAuth, deletePrescriptions);
+// In your routes file (e.g., appointments.routes.ts or patients.routes.ts)
+import { getPatientIdByUserId } from "./prescriptions.controller";
+
+prescriptionsRouter.get("/patient-id/:userId", getPatientIdByUserId);
+

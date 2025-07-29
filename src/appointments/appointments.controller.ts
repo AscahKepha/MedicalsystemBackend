@@ -19,6 +19,9 @@ export const getAppointments = async (req: Request, res: Response) => {
 
 
 
+
+
+
 export const getAppointmentsById = async (req: Request, res: Response) => {
     const appointmentsId = parseInt(req.params.appointmentId);
     if (isNaN(appointmentsId)) { //NaN -not a number
@@ -130,6 +133,11 @@ export const createAppointments = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message || "Failed to create appointment" });
     }
 };
+
+
+
+
+
 
 // ✅ UPDATE Appointment
 export const updateAppointments = async (req: Request, res: Response) => {
@@ -243,6 +251,9 @@ export const getDoctorIdByUserId = async (req: Request, res: Response) => {
     }
 };
 
+
+
+
 export const deleteAppointments = async (req: Request, res: Response) => {
     const appointmentsId = parseInt(req.params.id);
     if (isNaN(appointmentsId)) {
@@ -260,3 +271,49 @@ export const deleteAppointments = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message || "Failed to delete appointments" });
     }
 }
+
+
+
+
+import { patientsTable } from "../drizzle/schema"; // ✅ Ensure this path is correct
+
+// ✅ Map userId to patientId with logging
+export const getPatientIdByUserId = async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId);
+    console.log("🔍 Incoming request to map userId to patientId:", userId);
+
+    if (isNaN(userId)) {
+        console.warn("⚠️ Invalid user ID received:", req.params.userId);
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
+
+    try {
+        console.log("📡 Querying patients table for userId:", userId);
+
+        const result = await db
+            .select({
+                patientId: patientsTable.patientId,
+                userId: patientsTable.userId,
+            })
+            .from(patientsTable)
+            .where(eq(patientsTable.userId, userId))
+            .limit(1);
+
+        if (result.length === 0) {
+            console.warn("❌ No patient found for userId:", userId);
+            res.status(404).json({ message: "No patient found for this user" });
+            return;
+        }
+
+        const patientId = result[0].patientId;
+        console.log(`✅ Found patientId ${patientId} for userId ${userId}`);
+        res.status(200).json({ patientId });
+        return;
+
+    } catch (error: any) {
+        console.error("🔥 Error fetching patientId by userId:", error);
+        res.status(500).json({ error: error.message || "Server error" });
+        return;
+    }
+};

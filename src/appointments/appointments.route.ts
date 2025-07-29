@@ -7,7 +7,7 @@ export const appointmentRouter = Router();
 
 
 // Get all Appointments
-appointmentRouter.get('/appointments', adminRoleAuth, getAppointments);
+appointmentRouter.get('/appointments', getAppointments);// adminRoleAuth,
 
 // Get Appointment by ID
 appointmentRouter.get('/appointments/:appointmentId', allRoleAuth, getAppointmentsById);
@@ -31,3 +31,10 @@ appointmentRouter.delete('/appointments/:appointmentId', adminRoleAuth, deleteAp
 import { getDoctorIdByUserId } from "./appointments.controller";
 
 appointmentRouter.get("/doctor-id/by-user/:userId", getDoctorIdByUserId);
+
+
+// In your routes file (e.g., appointments.routes.ts or patients.routes.ts)
+import { getPatientIdByUserId } from "./appointments.controller";
+
+appointmentRouter.get("/patient-id/:userId", getPatientIdByUserId);
+

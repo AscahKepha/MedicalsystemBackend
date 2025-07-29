@@ -11,6 +11,7 @@ CREATE TABLE "appointmentsTable" (
 	"startTime" time NOT NULL,
 	"endTime" time NOT NULL,
 	"totalAmount" numeric(10, 2) DEFAULT '0.00' NOT NULL,
+	"reason" varchar(255),
 	"appointmentStatus" "AppointmentsStatus" DEFAULT 'pending',
 	"createdAt" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -36,6 +37,7 @@ CREATE TABLE "doctorsTable" (
 	"specialization" varchar(255),
 	"contact_phone" varchar(20),
 	"is_available" boolean DEFAULT false NOT NULL,
+	"availability" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -69,6 +71,8 @@ CREATE TABLE "prescriptionsTable" (
 	"doctorId" integer,
 	"patientId" integer,
 	"notes" text,
+	"issue_date" timestamp NOT NULL,
+	"expiry_date" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
