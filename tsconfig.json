@@ -9,9 +9,8 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    // "types": ["jest"],
     "isolatedModules": true
   },
-  "include": ["src/**/*.ts", "tests"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }

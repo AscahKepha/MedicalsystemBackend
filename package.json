@@ -8,11 +8,10 @@
     "build": "tsc",
     "start": "node ./dist/src/server.js",
     "gen": "drizzle-kit generate",
-    "migrate": " tsx src/drizzle/migrate.ts",
+    "migrate": "tsx src/drizzle/migrate.ts",
     "studio": "drizzle-kit studio",
-    "push": " drizzle-kit generate && drizzle-kit migrate && drizzle-kit push",
-    "seed": "tsx src/drizzle/seed.ts",
-    "test": "jest --config jest.config.ts"
+    "push": "drizzle-kit generate && drizzle-kit migrate && drizzle-kit push",
+    "seed": "tsx src/drizzle/seed.ts"
   },
   "keywords": [],
   "author": "",
