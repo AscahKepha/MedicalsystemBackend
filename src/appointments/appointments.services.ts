@@ -2,9 +2,12 @@ import { eq, desc } from "drizzle-orm";
 import db from "../drizzle/db";
 import {
   appointmentsTable,
+} from "../drizzle/schema";
+
+import {
   TAppointmentsSelect,
   TAppointmentsInsert,
-} from "../drizzle/schema";
+} from "../drizzle/types";
 
 // ✅ Get all appointments WITH doctor & patient user info
 export const getAppointmentsServices = async (): Promise<any[] | null> => {
@@ -29,32 +32,65 @@ export const getAppointmentsServices = async (): Promise<any[] | null> => {
   return appointments;
 };
 
-
-// 🔍 Get appointments by ID
+// 🔍 Get appointment by ID WITH doctor & patient info
 export const getAppointmentsByIdServices = async (
-  appointmentsId: number
-): Promise<TAppointmentsSelect | undefined> => {
-  return await db.query.appointmentsTable.findFirst({
-    where: eq(appointmentsTable.appointmentId, appointmentsId),
+  appointmentId: number
+): Promise<any | undefined> => {
+  const appointment = await db.query.appointmentsTable.findFirst({
+    where: eq(appointmentsTable.appointmentId, appointmentId),
+    with: {
+      doctor: {
+        with: {
+          user: true,
+        },
+      },
+      patient: {
+        with: {
+          user: true,
+        },
+      },
+    },
   });
+
+  return appointment;
 };
 
-// 👤 Get appointments by patientId
+// 👤 Get appointments by patientId WITH doctor info
 export const getAppointmentByPatientIdServices = async (
   patientId: number
-): Promise<TAppointmentsSelect[] | null> => {
-  return await db.query.appointmentsTable.findMany({
+): Promise<any[] | null> => {
+  const appointments = await db.query.appointmentsTable.findMany({
     where: eq(appointmentsTable.patientId, patientId),
+    orderBy: [desc(appointmentsTable.appointmentId)],
+    with: {
+      doctor: {
+        with: {
+          user: true,
+        },
+      },
+    },
   });
+
+  return appointments;
 };
 
-// 👨‍⚕️ Get appointments by doctorId
+// 👨‍⚕️ Get appointments by doctorId WITH patient info
 export const getAppointmentByDoctorIdServices = async (
   doctorId: number
-): Promise<TAppointmentsSelect[] | null> => {
-  return await db.query.appointmentsTable.findMany({
+): Promise<any[] | null> => {
+  const appointments = await db.query.appointmentsTable.findMany({
     where: eq(appointmentsTable.doctorId, doctorId),
+    orderBy: [desc(appointmentsTable.appointmentId)],
+    with: {
+      patient: {
+        with: {
+          user: true,
+        },
+      },
+    },
   });
+
+  return appointments;
 };
 
 // ➕ Create a new appointment
@@ -73,22 +109,22 @@ export const createAppointmentsServices = async (
 
 // ✏️ Update an existing appointment
 export const updateAppointmentsServices = async (
-  appointmentsId: number,
+  appointmentId: number,
   appointments: TAppointmentsInsert
 ): Promise<string> => {
   await db
     .update(appointmentsTable)
     .set(appointments)
-    .where(eq(appointmentsTable.appointmentId, appointmentsId));
-  return "appointments Updated Successfully 😎";
+    .where(eq(appointmentsTable.appointmentId, appointmentId));
+  return "Appointment updated successfully";
 };
 
 // ❌ Delete appointment
 export const deleteAppointmentsServices = async (
-  appointmentsId: number
+  appointmentId: number
 ): Promise<string> => {
   await db
     .delete(appointmentsTable)
-    .where(eq(appointmentsTable.appointmentId, appointmentsId));
-  return "appointments Deleted Successfully";
+    .where(eq(appointmentsTable.appointmentId, appointmentId));
+  return "Appointment deleted successfully";
 };

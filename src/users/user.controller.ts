@@ -1,11 +1,15 @@
+// 📁 user.controller.ts
 import { Request, Response } from "express";
 import {
     createUserServices,
     deleteUserServices,
     getUserByIdServices,
     getUsersServices,
-    updateUserServices
+    updateUserServices,
 } from "./user.service";
+import { doctorAvailabilityTable, doctorsTable } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
+import db from "../drizzle/db";
 
 // GET all users (admin only — enforced via route middleware)
 export const getUsers = async (req: Request, res: Response) => {
@@ -59,7 +63,7 @@ export const getUserById = async (req: Request, res: Response) => {
     }
 };
 
-// 🧪 POST create user (public or admin, no role check here)
+// POST create user
 export const createUser = async (req: Request, res: Response) => {
     const { firstName, lastName, email, password, contactPhone, address } = req.body;
 
@@ -69,7 +73,14 @@ export const createUser = async (req: Request, res: Response) => {
     }
 
     try {
-        const newUser = await createUserServices({ firstName, lastName, email, password, contactPhone, address });
+        const newUser = await createUserServices({
+            firstName,
+            lastName,
+            email,
+            password,
+            contactPhone,
+            address,
+        });
 
         if (!newUser) {
             res.status(500).json({ message: "Failed to create user" });
@@ -84,18 +95,15 @@ export const createUser = async (req: Request, res: Response) => {
     }
 };
 
-import { doctorsTable } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
-import db from "../drizzle/db";
-
-// adjust as needed
+// PUT update user
+// PUT update user
 export const updateUser = async (req: Request, res: Response) => {
     const requestedId = parseInt(req.params.id);
     console.log("🔍 Requested user ID:", requestedId);
 
     if (isNaN(requestedId)) {
-         res.status(400).json({ error: "Invalid user ID" });
-         return;
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
     }
 
     const {
@@ -113,7 +121,7 @@ export const updateUser = async (req: Request, res: Response) => {
     console.log("📥 Incoming update payload:", req.body);
 
     if (!firstName || !lastName || !email || !contactPhone) {
-         res.status(400).json({
+        res.status(400).json({
             error: "Required fields missing: firstName, lastName, email, or contactPhone",
         });
         return;
@@ -130,10 +138,10 @@ export const updateUser = async (req: Request, res: Response) => {
             res.status(403).json({
                 error: "Forbidden: patients can only update their own profile",
             });
-            return; 
+            return;
         }
 
-        // Step 1: Update the main user table
+        // Step 1: Update user table
         const userUpdates: any = {
             firstName,
             lastName,
@@ -152,26 +160,14 @@ export const updateUser = async (req: Request, res: Response) => {
             res
                 .status(404)
                 .json({ error: "User not found or failed to update" });
-                return;
+            return;
         }
 
-        // Step 2: If role is doctor, update doctor profile
+        // Step 2: If doctor, update doctor table and availability
         if (requester?.role === "doctor") {
             console.log("🩺 Updating doctor profile...");
 
-            // Validate availability format if provided
-            let parsedAvailability = undefined;
-            if (availability) {
-                try {
-                    parsedAvailability = Array.isArray(availability)
-                        ? availability
-                        : JSON.parse(availability);
-                } catch (err) {
-                   res.status(400).json({ error: "Invalid availability format" });
-                   return; 
-                }
-            }
-
+            // Update doctor table
             await db
                 .update(doctorsTable)
                 .set({
@@ -180,26 +176,68 @@ export const updateUser = async (req: Request, res: Response) => {
                     specialization: specialization || undefined,
                     contactPhone,
                     isAvailable: isAvailable === true || isAvailable === "true",
-                    availability: parsedAvailability || [],
                     updatedAt: new Date(),
                 })
                 .where(eq(doctorsTable.userId, requestedId));
+
+            // Handle doctor availability
+            if (availability) {
+                let parsedAvailability;
+                try {
+                    parsedAvailability = Array.isArray(availability)
+                        ? availability
+                        : JSON.parse(availability);
+                } catch (err) {
+                    res.status(400).json({ error: "Invalid availability format" });
+                    return;
+                }
+
+                // Find doctorId using userId
+                const doctor = await db.query.doctorsTable.findFirst({
+                    where: eq(doctorsTable.userId, requestedId),
+                });
+
+                if (!doctor) {
+                    res.status(404).json({ error: "Doctor not found" });
+                    return;
+                }
+
+                // Remove existing availability entries
+                await db
+                    .delete(doctorAvailabilityTable)
+                    .where(eq(doctorAvailabilityTable.doctorId, doctor.doctorId));
+
+                // Insert new availability slots
+                if (parsedAvailability.length > 0) {
+                    await db.insert(doctorAvailabilityTable).values(
+                        parsedAvailability.map((slot: any) => ({
+                            doctorId: doctor.doctorId,
+                            dayOfWeek: slot.dayOfWeek,
+                            startTime: slot.startTime,
+                            endTime: slot.endTime,
+                            slotDuration: slot.slotDuration || 30,
+                            slotFee: slot.slotFee || 0,
+                        }))
+                    );
+                }
+            }
         }
 
         console.log("✅ Profile update successful");
-         res.status(200).json({ message: "Profile updated successfully" });
-         return;
+        res.status(200).json({ message: "Profile updated successfully" });
+        return;
     } catch (error: any) {
         console.error("❌ Update error:", error);
-         res
+        res
             .status(500)
             .json({ error: error.message || "Failed to update user" });
-            return;
+        return;
     }
 };
 
 
-// 🗑️ DELETE user (admin can delete any, patient can only delete self)
+
+// DELETE user
 export const deleteUser = async (req: Request, res: Response) => {
     const requestedId = parseInt(req.params.id);
 
