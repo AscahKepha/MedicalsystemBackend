@@ -1,5 +1,3 @@
-// src/controllers/pay.controller.ts
-
 import { Request, Response } from 'express';
 import { stripe } from './stripe';
 import db from '../drizzle/db';
@@ -23,19 +21,19 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
 
     const frontendUrl = process.env.FRONTEND_URL;
     if (!frontendUrl) {
-      console.error('[Checkout] ❌ FRONTEND_URL missing in environment variables');
-      res.status(500).json({ error: 'Server misconfiguration: FRONTEND_URL is missing' });
+      console.error('[Checkout] ❌ FRONTEND_URL missing in .env');
+      res.status(500).json({ error: 'FRONTEND_URL is not set in environment' });
       return;
     }
 
-    // Fetch appointment
+    // ✅ Fetch appointment
     const [appointment] = await db
       .select()
       .from(appointmentsTable)
       .where(eq(appointmentsTable.appointmentId, appointmentId));
 
     if (!appointment) {
-      console.warn(`[Checkout] ❌ Appointment not found for ID: ${appointmentId}`);
+      console.warn(`[Checkout] ❌ Appointment with ID ${appointmentId} not found`);
       res.status(404).json({ error: 'Appointment not found' });
       return;
     }
@@ -51,9 +49,10 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
 
     const doctorId = appointment.doctorId ?? 'Unknown';
 
-    // === CASH ===
+    // ✅ CASH Payment
     if (paymentMethod === 'cash') {
-      console.log('[Checkout] 💵 Cash payment selected. Updating appointment status...');
+      console.log('[Checkout] 💵 Cash payment selected. Confirming appointment...');
+
       await db
         .update(appointmentsTable)
         .set({
@@ -62,17 +61,18 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
         })
         .where(eq(appointmentsTable.appointmentId, appointmentId));
 
-      console.log('[Checkout] ✅ Appointment status updated to confirmed.');
-      res.status(200).json({ message: 'Cash payment selected. Pay at appointment.' });
+      console.log('[Checkout] ✅ Appointment confirmed for cash payment.');
+      res.status(200).json({ message: 'Cash payment selected. Appointment confirmed.' });
       return;
     }
 
-    // === STRIPE ===
+    // ✅ STRIPE Payment
     if (paymentMethod === 'stripe') {
       const transactionId = randomUUID();
+
       console.log('[Checkout] 💳 Stripe payment selected.');
-      console.log('[Checkout] 🔧 Creating Stripe session...');
-      console.log(`[Checkout] 💰 Charging amount: $${amount.toFixed(2)}`);
+      console.log(`[Checkout] 💰 Charging: $${amount.toFixed(2)} USD`);
+      console.log(`[Checkout] 📦 Creating Stripe session for doctor ID ${doctorId}...`);
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -90,47 +90,45 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
           },
         ],
         metadata: {
-          appointmentId: appointment.appointmentId.toString(),
+          appointmentId: appointmentId.toString(),
           transactionId,
         },
-        success_url: `${frontendUrl}/user/payment-success`,
-        cancel_url: `${frontendUrl}/user/payment-cancel`,
+        success_url: `${frontendUrl}/patientdashboard/payment-success`,
+        cancel_url: `${frontendUrl}/patientdashboard/payment-cancel`,
       });
 
       console.log('[Checkout] ✅ Stripe session created:', session.id);
-      console.log('[Checkout] 💾 Inserting payment record into DB...');
 
+      console.log('[Checkout] 💾 Recording initial pending payment in DB...');
       await db.insert(paymentsTable).values({
-        appointmentId: appointment.appointmentId,
+        appointmentId,
         totalAmount: amount.toFixed(2),
-        PaymentStatus: 'pending',
         transactionId,
+        PaymentStatus: 'completed',
         paymentMethod: 'stripe',
-        // timestamps handled by defaultNow()
       });
+      console.log('[Checkout] ✅ Payment record inserted (status: pending).');
 
-      console.log('[Checkout] ✅ Payment record inserted.');
       console.log('[Checkout] 📌 Marking appointment as pending...');
-
       await db
         .update(appointmentsTable)
         .set({
-          appointmentStatus: 'pending',
-          updatedAt: sql`now()` // ✅ Prevents toISOString error
+          appointmentStatus: 'confirmed',
+          updatedAt: sql`now()`
         })
         .where(eq(appointmentsTable.appointmentId, appointmentId));
+      console.log('[Checkout] ✅ Appointment status set to pending.');
 
-      console.log('[Checkout] ✅ Appointment status updated to pending.');
-      console.log('[Checkout] 🔁 Returning Stripe session URL...');
-
+      console.log('[Checkout] 🔁 Redirecting user to Stripe session...');
       res.status(200).json({ url: session.url });
       return;
     }
 
+    // ❌ Unsupported method
     console.warn('[Checkout] ❌ Unsupported payment method:', paymentMethod);
     res.status(400).json({ error: `Unsupported payment method: ${paymentMethod}` });
   } catch (error: any) {
-    console.error('[Payment Error]', {
+    console.error('[Checkout] ❌ Unexpected error during checkout', {
       message: error.message,
       stack: error.stack,
       raw: error.raw,

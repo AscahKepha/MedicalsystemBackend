@@ -1,228 +1,112 @@
-// // seed.ts
-// import db from "./db";
-// import {
-//     userTable,
-//     doctorsTable,
-//     doctorAvailabilityTable,
-//     patientsTable,
-//     appointmentsTable,
-//     paymentsTable,
-//     complaintsTable,
-// } from "./schema";
+// seed/doctors.seed.ts
 
-// async function seed() {
-//     // Step 1: Clear existing data
-//     await db.delete(complaintsTable);
-//     await db.delete(paymentsTable);
-//     await db.delete(appointmentsTable);
-//     await db.delete(doctorAvailabilityTable);
-//     await db.delete(doctorsTable);
-//     await db.delete(patientsTable);
-//     await db.delete(userTable);
+import db from './db';
+import { userTable, doctorsTable } from './schema';
+import { eq } from 'drizzle-orm';
 
-//     // Step 2: Insert Users
-//     const users = await db.insert(userTable).values([
-//         {
-//             firstName: "John",
-//             lastName: "Doe",
-//             email: "john.doe@example.com",
-//             password: "hashed_password_1",
-//             contactPhone: "1234567890",
-//             address: "123 Elm Street",
-//             userType: "patient",
-//         },
-//         {
-//             firstName: "Alice",
-//             lastName: "Smith",
-//             email: "alice.smith@example.com",
-//             password: "hashed_password_2",
-//             contactPhone: "2345678901",
-//             address: "456 Oak Avenue",
-//             userType: "doctor",
-//         },
-//         {
-//             firstName: "Bob",
-//             lastName: "Brown",
-//             email: "bob.brown@example.com",
-//             password: "hashed_password_3",
-//             contactPhone: "3456789012",
-//             address: "789 Pine Lane",
-//             userType: "admin",
-//         },
-//     ]).returning({ userId: userTable.userId });
+async function seedDoctors() {
+  try {
+    console.log('🌱 Seeding doctors...');
 
-//     // Step 3: Insert Patients
-//     const patients = await db.insert(patientsTable).values([
-//         {
-//             userId: users[0].userId,
-//             firstName: "John",
-//             lastName: "Doe",
-//             contactPhone: "1234567890",
-//         },
-//         {
-//             userId: users[2].userId,
-//             firstName: "Bob",
-//             lastName: "Brown",
-//             contactPhone: "3456789012",
-//         },
-//         {
-//             userId: users[1].userId,
-//             firstName: "Alice",
-//             lastName: "Smith",
-//             contactPhone: "2345678901",
-//         },
-//     ]).returning({ patientId: patientsTable.patientId });
+    const doctors = [
+      {
+        user: {
+          firstName: 'Emily',
+          lastName: 'Ngugi',
+          email: 'emily.ngugi@aura.com',
+          password: 'hashed-password-1', // Replace with hashed password
+          contactPhone: '0712345678',
+          address: 'Nairobi',
+          userType: 'doctor' as const,
+        },
+        doctor: {
+          specialization: 'Cardiologist',
+          contactPhone: '0712345678',
+          isAvailable: true,
+          defaultSlotDuration: 30,
+        },
+      },
+      {
+        user: {
+          firstName: 'John',
+          lastName: 'Omondi',
+          email: 'john.omondi@aura.com',
+          password: 'hashed-password-2',
+          contactPhone: '0722334455',
+          address: 'Kisumu',
+          userType: 'doctor' as const,
+        },
+        doctor: {
+          specialization: 'Dermatologist',
+          contactPhone: '0722334455',
+          isAvailable: true,
+          defaultSlotDuration: 30,
+        },
+      },
+      {
+        user: {
+          firstName: 'Sarah',
+          lastName: 'Kiprono',
+          email: 'sarah.kiprono@aura.com',
+          password: 'hashed-password-3',
+          contactPhone: '0733445566',
+          address: 'Eldoret',
+          userType: 'doctor' as const,
+        },
+        doctor: {
+          specialization: 'Pediatrician',
+          contactPhone: '0733445566',
+          isAvailable: false,
+          defaultSlotDuration: 20,
+        },
+      },
+    ];
 
-//     // Step 4: Insert Doctors
-//     const doctors = await db.insert(doctorsTable).values([
-//         {
-//             userId: users[1].userId,
-//             firstName: "Alice",
-//             lastName: "Smith",
-//             specialization: "Cardiology",
-//             contactPhone: "2345678901",
-//             isAvailable: true,
-//             defaultSlotDuration: 30,
-//         },
-//         {
-//             userId: users[2].userId,
-//             firstName: "Bob",
-//             lastName: "Brown",
-//             specialization: "Dermatology",
-//             contactPhone: "3456789012",
-//             isAvailable: true,
-//             defaultSlotDuration: 20,
-//         },
-//         {
-//             userId: users[0].userId,
-//             firstName: "John",
-//             lastName: "Doe",
-//             specialization: "Neurology",
-//             contactPhone: "1234567890",
-//             isAvailable: false,
-//             defaultSlotDuration: 40,
-//         },
-//     ]).returning({ doctorId: doctorsTable.doctorId });
+    for (const entry of doctors) {
+      // Check if user exists
+      const [existingUser] = await db
+        .select()
+        .from(userTable)
+        .where(eq(userTable.email, entry.user.email));
 
-//     // Step 5: Insert Doctor Availability
-//     await db.insert(doctorAvailabilityTable).values([
-//         {
-//             doctorId: doctors[0].doctorId,
-//             dayOfWeek: "Monday",
-//             startTime: "09:00",
-//             endTime: "12:00",
-//             slotDuration: 30,
-//             slotFee: "100.00",
-//         },
-//         {
-//             doctorId: doctors[1].doctorId,
-//             dayOfWeek: "Tuesday",
-//             startTime: "10:00",
-//             endTime: "13:00",
-//             slotDuration: 20,
-//             slotFee: "150.00",
-//         },
-//         {
-//             doctorId: doctors[2].doctorId,
-//             dayOfWeek: "Wednesday",
-//             startTime: "14:00",
-//             endTime: "17:00",
-//             slotDuration: 40,
-//             slotFee: "200.00",
-//         },
-//     ]);
+      let userId: number;
 
-//     // Step 6: Insert Appointments
-//     const appointments = await db.insert(appointmentsTable).values([
-//         {
-//             patientId: patients[0].patientId,
-//             doctorId: doctors[0].doctorId,
-//             appointmentDate: "2025-07-30",
-//             timeSlot: "10:00:00",
-//             startTime: "10:00:00",
-//             endTime: "10:30:00",
-//             totalAmount: "100.00",
-//             reason: "Regular Checkup",
-//             appointmentStatus: "confirmed",
-//         },
-//         {
-//             patientId: patients[1].patientId,
-//             doctorId: doctors[1].doctorId,
-//             appointmentDate: "2025-07-30",
-//             timeSlot: "11:00:00",
-//             startTime: "11:00:00",
-//             endTime: "11:30:00",
-//             totalAmount: "150.00",
-//             reason: "Skin Rash",
-//             appointmentStatus: "pending",
-//         },
-//         {
-//             patientId: patients[2].patientId,
-//             doctorId: doctors[2].doctorId,
-//             appointmentDate: "2025-08-06",
-//             timeSlot: "14:00:00",
-//             startTime: "14:00:00",
-//             endTime: "14:30:00",
-//             totalAmount: "200.00",
-//             reason: "Headache",
-//             appointmentStatus: "rescheduled",
-//         },
-//     ]).returning({ appointmentId: appointmentsTable.appointmentId });
+      if (existingUser) {
+        console.log(`⚠️  User already exists: ${entry.user.email}`);
+        userId = existingUser.userId;
+      } else {
+        const inserted = await db.insert(userTable).values(entry.user).returning({ userId: userTable.userId });
+        userId = inserted[0].userId;
+        console.log(`✅ Created user for ${entry.user.firstName} (${userId})`);
+      }
 
-//     // Step 7: Insert Payments
-//     await db.insert(paymentsTable).values([
-//         {
-//             appointmentId: appointments[0].appointmentId,
-//             totalAmount: "100.00",
-//             PaymentStatus: "completed",
-//             transactionId: "txn_001",
-//             paymentMethod: "stripe",
-//         },
-//         {
-//             appointmentId: appointments[1].appointmentId,
-//             totalAmount: "150.00",
-//             PaymentStatus: "pending",
-//             transactionId: "txn_002",
-//             paymentMethod: "cash",
-//         },
-//         {
-//             appointmentId: appointments[2].appointmentId,
-//             totalAmount: "200.00",
-//             PaymentStatus: "refunded",
-//             transactionId: "txn_003",
-//             paymentMethod: "stripe",
-//         },
-//     ]);
+      // Check if doctor already exists
+      const [existingDoctor] = await db
+        .select()
+        .from(doctorsTable)
+        .where(eq(doctorsTable.userId, userId));
 
-//     // Step 8: Insert Complaints
-//     await db.insert(complaintsTable).values([
-//         {
-//             userId: users[0].userId,
-//             relatedAppointmentId: appointments[0].appointmentId,
-//             subject: "Late appointment",
-//             description: "The doctor was late by 20 minutes",
-//             complaintStatus: "Open",
-//         },
-//         {
-//             userId: users[1].userId,
-//             relatedAppointmentId: appointments[1].appointmentId,
-//             subject: "Billing issue",
-//             description: "Incorrect billing amount shown",
-//             complaintStatus: "In Progress",
-//         },
-//         {
-//             userId: users[2].userId,
-//             relatedAppointmentId: appointments[2].appointmentId,
-//             subject: "Wrong diagnosis",
-//             description: "Prescribed treatment didn't help",
-//             complaintStatus: "Resolved",
-//         },
-//     ]);
+      if (existingDoctor) {
+        console.log(`⚠️  Doctor already exists for userId ${userId}`);
+        continue;
+      }
 
-//     console.log("✅ Seed completed");
-// }
+      await db.insert(doctorsTable).values({
+        ...entry.doctor,
+        userId,
+        firstName: entry.user.firstName,
+        lastName: entry.user.lastName,
+      });
 
-// seed().catch((err) => {
-//     console.error("❌ Seed failed", err);
-//     process.exit(1);
-// });
+      console.log(`✅ Inserted doctor: Dr. ${entry.user.firstName} ${entry.user.lastName}`);
+    }
+
+    console.log('✅ Doctor seeding complete.');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Failed to seed doctors:', error);
+    process.exit(1);
+  }
+}
+
+seedDoctors();
