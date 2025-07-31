@@ -19,7 +19,7 @@ import { rateLimiterMiddleware } from "./middleware/rateLimiter";
 const app: Application = express();
 
 
-const port = process.env.PORT || 5000;
+// const port = process.env.PORT || 5000;
 
 
 
