@@ -9,7 +9,7 @@ import { paymentsRouter } from "./payments/payments.route";
 import { complaintsRouter } from "./complaints/complaints.route";
 import { prescriptionsRouter } from "./prescriptions/prescriptions.route";
 
-import swaggerUi from 'swagger-ui-express'
+// import swaggerUi from 'swagger-ui-express'
 
 // import { rateLimiterMiddleware } from "./middleware/rateLimiter";
 import cors from "cors";
