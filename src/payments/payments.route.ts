@@ -33,3 +33,22 @@ paymentsRouter.put('/payments/:id', adminRoleAuth, updatepayments);
 
 // Delete an existing payments
 paymentsRouter.delete('/payments/:id', adminRoleAuth, deletepayments);
+
+
+import express from 'express';
+import { createCheckoutSession } from './pay.controller';
+import { handleStripeWebhook } from './webhook.controller';
+
+// const router = express.Router();
+
+paymentsRouter.post('/payments/checkout', createCheckoutSession);
+
+// Stripe requires raw body for webhooks
+paymentsRouter.post(
+  '/payments/webhook',
+  express.raw({ type: 'application/json' }), // 👈 this is required
+  handleStripeWebhook
+);
+
+
+

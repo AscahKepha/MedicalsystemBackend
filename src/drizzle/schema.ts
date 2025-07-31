@@ -1,26 +1,18 @@
-import { relations, sql } from "drizzle-orm";
+// 📁 schema.ts (with relations)
 import {
-  boolean,
-  date,
-  integer,
-  numeric,
-  pgEnum,
-  pgTable,
-  serial,
-  text,
-  time,
-  timestamp,
-  unique,
-  varchar,
+  pgTable, serial, varchar, integer, text, boolean, timestamp, date, time, numeric,
+  pgEnum, unique
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 // --- Enums ---
 export const roleEnum = pgEnum("userType", ["admin", "doctor", "patient"]);
 export const PaymentStatusEnum = pgEnum("paymentStatus", ["pending", "completed", "failed", "refunded"]);
 export const appointmentStatusEnum = pgEnum("AppointmentsStatus", ["confirmed", "canceled", "completed", "rescheduled", "pending"]);
 export const complaintStatusEnum = pgEnum("complaintStatus", ["Open", "In Progress", "Resolved", "Closed"]);
+export const paymentMethodEnum = pgEnum("paymentMethod", ["stripe", "cash"]);
 
-// --- User Table ---
+// --- Tables ---
 export const userTable = pgTable("userTable", {
   userId: serial("userId").primaryKey(),
   firstName: varchar("firstName"),
@@ -34,10 +26,6 @@ export const userTable = pgTable("userTable", {
   updatedAt: timestamp("updatedAt").defaultNow(),
 });
 
-export type TUserInsert = typeof userTable.$inferInsert;
-export type TUserSelect = typeof userTable.$inferSelect;
-
-// --- Patients Table ---
 export const patientsTable = pgTable("patientsTable", {
   patientId: serial("patientId").primaryKey(),
   userId: integer("userId").references(() => userTable.userId, { onDelete: "set null" }).unique(),
@@ -45,15 +33,9 @@ export const patientsTable = pgTable("patientsTable", {
   lastName: varchar("last_name", { length: 255 }).notNull(),
   contactPhone: varchar("contact_phone", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export type TPatientInsert = typeof patientsTable.$inferInsert;
-export type TPatientSelect = typeof patientsTable.$inferSelect;
-
-import { jsonb } from "drizzle-orm/pg-core";
-
-// --- Doctors Table ---
 export const doctorsTable = pgTable("doctorsTable", {
   doctorId: serial("doctor_id").primaryKey(),
   userId: integer("userId").references(() => userTable.userId, { onDelete: "set null" }),
@@ -62,45 +44,35 @@ export const doctorsTable = pgTable("doctorsTable", {
   specialization: varchar("specialization", { length: 255 }),
   contactPhone: varchar("contact_phone", { length: 20 }),
   isAvailable: boolean("is_available").default(false).notNull(),
-
-  // 👇 New availability field
-  availability: jsonb("availability").default([]).notNull(),
-
+  defaultSlotDuration: integer("default_slot_duration").default(30),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export type TDoctorInsert = typeof doctorsTable.$inferInsert;
-export type TDoctorSelect = typeof doctorsTable.$inferSelect;
+export const doctorAvailabilityTable = pgTable("doctorAvailability", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").references(() => doctorsTable.doctorId, { onDelete: "cascade" }).notNull(),
+  dayOfWeek: varchar("day_of_week", { length: 20 }).notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  slotDuration: integer("slot_duration").default(30).notNull(),
+  slotFee: numeric("slot_fee", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
-// --- Appointments Table ---
 export const appointmentsTable = pgTable("appointmentsTable", {
   appointmentId: serial("appointmentId").primaryKey(),
-
-  patientId: integer("patientId").references(() => patientsTable.patientId, {
-    onDelete: "set null",
-  }),
-
-  doctorId: integer("doctorId").references(() => doctorsTable.doctorId, {
-    onDelete: "set null",
-  }),
-
+  patientId: integer("patientId").references(() => patientsTable.patientId, { onDelete: "set null" }),
+  doctorId: integer("doctorId").references(() => doctorsTable.doctorId, { onDelete: "set null" }),
   appointmentDate: date("appointmentDate", { mode: "string" }).notNull(),
-  timeSlot: time("timeSlot").notNull(),
   startTime: time("startTime").notNull(),
   endTime: time("endTime").notNull(),
-
-  totalAmount: numeric("totalAmount", { precision: 10, scale: 2 })
-    .default("0.00")
-    .notNull(),
-
-  // ✅ Added reason field (optional — remove `.notNull()` if you want it required)
+  totalAmount: numeric("totalAmount", { precision: 10, scale: 2 }).default("0.00").notNull(),
   reason: varchar("reason", { length: 255 }),
-
   appointmentStatus: appointmentStatusEnum("appointmentStatus").default("pending"),
-
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, table => ({
   doctorAppointmentUnique: unique("doctorAppointmentUnique").on(
     table.doctorId,
@@ -109,43 +81,30 @@ export const appointmentsTable = pgTable("appointmentsTable", {
   ),
 }));
 
-
-export type TAppointmentsInsert = typeof appointmentsTable.$inferInsert;
-export type TAppointmentsSelect = typeof appointmentsTable.$inferSelect;
-
-// --- Prescriptions Table ---
 export const prescriptionsTable = pgTable("prescriptionsTable", {
   prescriptionId: serial("prescriptionId").primaryKey(),
   appointmentId: integer("appointmentId").references(() => appointmentsTable.appointmentId, { onDelete: "set null" }),
   doctorId: integer("doctorId").references(() => doctorsTable.doctorId, { onDelete: "set null" }),
   patientId: integer("patientId").references(() => patientsTable.patientId, { onDelete: "set null" }),
   notes: text("notes"),
-  // You might want to add totalAmount, issueDate, expiryDate here if they're part of the backend
   issueDate: timestamp("issue_date").notNull(),
-  expiryDate: timestamp("expiry_date"), // Optional
+  expiryDate: timestamp("expiry_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export type TPrescriptionsInsert = typeof prescriptionsTable.$inferInsert;
-export type TPrescriptionsSelect = typeof prescriptionsTable.$inferSelect;
-
-// --- Payments Table ---
 export const paymentsTable = pgTable("payments", {
   paymentId: serial("payment_id").primaryKey(),
   appointmentId: integer("appointment_id").references(() => appointmentsTable.appointmentId, { onDelete: "set null" }),
   totalAmount: numeric("totalAmount", { precision: 10, scale: 2 }).notNull(),
   PaymentStatus: PaymentStatusEnum("paymentStatus").default("pending"),
   transactionId: varchar("transaction_id", { length: 255 }).unique().notNull(),
-  paymentDate: timestamp("payment_date").defaultNow().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
+  paymentMethod: paymentMethodEnum("paymentMethod").default("stripe").notNull(),
+  paymentDate: timestamp("payment_date", { mode: 'date' }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: 'date' }).defaultNow().notNull(),
 });
 
-export type TPaymentInsert = typeof paymentsTable.$inferInsert;
-export type TPaymentSelect = typeof paymentsTable.$inferSelect;
-
-// --- Complaints Table ---
 export const complaintsTable = pgTable("complaints", {
   complaintsId: serial("complaintId").primaryKey(),
   userId: integer("userId").references(() => userTable.userId, { onDelete: "set null" }),
@@ -154,22 +113,13 @@ export const complaintsTable = pgTable("complaints", {
   description: text("description").notNull(),
   complaintStatus: complaintStatusEnum("complaintStatus").default("Open"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => sql`now()`).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export type TComplaintInsert = typeof complaintsTable.$inferInsert;
-export type TComplaintSelect = typeof complaintsTable.$inferSelect;
-
-// --- Relationships ---
-export const userRelations = relations(userTable, ({ one, many }) => ({
-  patient: one(patientsTable, {
-    fields: [userTable.userId],
-    references: [patientsTable.userId],
-  }),
-  doctor: one(doctorsTable, {
-    fields: [userTable.userId],
-    references: [doctorsTable.userId],
-  }),
+// --- Relations ---
+export const userRelations = relations(userTable, ({ many }) => ({
+  doctors: many(doctorsTable),
+  patients: many(patientsTable),
   complaints: many(complaintsTable),
 }));
 
@@ -178,8 +128,16 @@ export const doctorsRelations = relations(doctorsTable, ({ one, many }) => ({
     fields: [doctorsTable.userId],
     references: [userTable.userId],
   }),
+  availability: many(doctorAvailabilityTable),
   appointments: many(appointmentsTable),
   prescriptions: many(prescriptionsTable),
+}));
+
+export const doctorAvailabilityRelations = relations(doctorAvailabilityTable, ({ one }) => ({
+  doctor: one(doctorsTable, {
+    fields: [doctorAvailabilityTable.doctorId],
+    references: [doctorsTable.doctorId],
+  }),
 }));
 
 export const patientsRelations = relations(patientsTable, ({ one, many }) => ({
@@ -192,23 +150,19 @@ export const patientsRelations = relations(patientsTable, ({ one, many }) => ({
 }));
 
 export const appointmentsRelations = relations(appointmentsTable, ({ one, many }) => ({
-  patient: one(patientsTable, {
-    fields: [appointmentsTable.patientId],
-    references: [patientsTable.patientId],
-  }),
   doctor: one(doctorsTable, {
     fields: [appointmentsTable.doctorId],
     references: [doctorsTable.doctorId],
+  }),
+  patient: one(patientsTable, {
+    fields: [appointmentsTable.patientId],
+    references: [patientsTable.patientId],
   }),
   prescriptions: many(prescriptionsTable),
   payments: many(paymentsTable),
 }));
 
 export const prescriptionsRelations = relations(prescriptionsTable, ({ one }) => ({
-  appointment: one(appointmentsTable, {
-    fields: [prescriptionsTable.appointmentId],
-    references: [appointmentsTable.appointmentId],
-  }),
   doctor: one(doctorsTable, {
     fields: [prescriptionsTable.doctorId],
     references: [doctorsTable.doctorId],
@@ -216,6 +170,10 @@ export const prescriptionsRelations = relations(prescriptionsTable, ({ one }) =>
   patient: one(patientsTable, {
     fields: [prescriptionsTable.patientId],
     references: [patientsTable.patientId],
+  }),
+  appointment: one(appointmentsTable, {
+    fields: [prescriptionsTable.appointmentId],
+    references: [appointmentsTable.appointmentId],
   }),
 }));
 

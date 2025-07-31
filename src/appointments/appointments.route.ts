@@ -10,7 +10,7 @@ export const appointmentRouter = Router();
 appointmentRouter.get('/appointments', getAppointments);// adminRoleAuth,
 
 // Get Appointment by ID
-appointmentRouter.get('/appointments/:appointmentId', allRoleAuth, getAppointmentsById);
+appointmentRouter.get('/appointments/:appointmentId', getAppointmentsById);// allRoleAuth,
 
 //Get specifiec doctor appointments
 appointmentRouter.get('/doctors/:doctorId/appointments', getAppointmentsByDoctorId)// doctorRoleAuth,

@@ -81,58 +81,123 @@ export const getAppointmentsByPatientId = async (req: Request, res: Response) =>
 
 
 // ✅ CREATE Appointment
+// ✅ CREATE Appointment (patientId from token)
+
+import { doctorAvailabilityTable, appointmentsTable } from "../drizzle/schema"; // adjust paths
+// import { Request, Response } from "express";
+import { and, lte, gte } from "drizzle-orm";
+
 export const createAppointments = async (req: Request, res: Response) => {
     const {
         appointmentDate,
-        timeSlot,
         startTime,
         endTime,
         totalAmount,
-        patientId,
         doctorId,
         reason,
     } = req.body;
 
     console.log("📥 Incoming Appointment Payload:", req.body);
 
-    if (
-        !appointmentDate ||
-        !timeSlot ||
-        !startTime ||
-        !endTime ||
-        !totalAmount ||
-        !patientId ||
-        !doctorId
-    ) {
-        console.warn("⚠️ Missing required fields");
-        res.status(400).json({ error: "All fields including patientId and doctorId are required" });
-        return;
+    // 🔐 Extract user from token (middleware must populate req.user)
+    const requester = req.user;
+    if (!requester || requester.role !== "patient") {
+        return res.status(403).json({ error: "Only patients can book appointments" });
     }
 
     try {
+        // ✅ Lookup patientId from patientsTable using userId
+        const [patient] = await db
+            .select()
+            .from(patientsTable)
+            .where(eq(patientsTable.userId, Number(requester.userId)))
+            .limit(1);
+
+        if (!patient) {
+            return res.status(404).json({ error: "Patient profile not found for this user." });
+        }
+
+        const patientId = patient.patientId;
+
+        // 🔍 Validate input
+        if (!appointmentDate || !startTime || !endTime || !totalAmount || !doctorId) {
+            return res.status(400).json({
+                error: "All fields except patientId are required. It is extracted from the token.",
+            });
+        }
+
+        // 📅 Determine day of the week (e.g., "Monday")
+        const dayOfWeek = new Date(appointmentDate).toLocaleString("en-US", {
+            weekday: "long",
+        });
+
+        // ✅ Check doctor's availability for the time slot
+        const [availableSlot] = await db
+            .select()
+            .from(doctorAvailabilityTable)
+            .where(
+                and(
+                    eq(doctorAvailabilityTable.doctorId, doctorId),
+                    eq(doctorAvailabilityTable.dayOfWeek, dayOfWeek),
+                    lte(doctorAvailabilityTable.startTime, startTime),
+                    gte(doctorAvailabilityTable.endTime, endTime)
+                )
+            )
+            .limit(1);
+
+        if (!availableSlot) {
+            return res.status(400).json({
+                error: `Doctor is not available on ${dayOfWeek} between ${startTime} and ${endTime}`,
+            });
+        }
+
+        // ❌ Check for conflicting appointment
+        const [conflict] = await db
+            .select()
+            .from(appointmentsTable)
+            .where(
+                and(
+                    eq(appointmentsTable.doctorId, doctorId),
+                    eq(appointmentsTable.appointmentDate, appointmentDate),
+                    eq(appointmentsTable.startTime, startTime)
+                )
+            )
+            .limit(1);
+
+        if (conflict) {
+            return res.status(409).json({
+                error: "This time slot is already booked. Please choose another.",
+            });
+        }
+
+        // ✅ Create the appointment
         const newAppointment = await createAppointmentsServices({
             appointmentDate,
-            timeSlot,
             startTime,
             endTime,
             totalAmount,
-            patientId,
             doctorId,
-            reason,
+            patientId,
+            reason: reason || "",
         });
 
         if (!newAppointment) {
-            console.error("❌ Failed to create appointment");
-            res.status(500).json({ message: "Failed to create appointment" });
-        } else {
-            console.log("✅ Appointment created:", newAppointment);
-            res.status(201).json({ message: newAppointment });
+            return res.status(500).json({ message: "Failed to create appointment" });
         }
+
+        return res.status(201).json({
+            message: "Appointment successfully created",
+            data: newAppointment,
+        });
+
     } catch (error: any) {
         console.error("❌ Error creating appointment:", error);
-        res.status(500).json({ error: error.message || "Failed to create appointment" });
+        return res.status(500).json({
+            error: error.message || "Unexpected error creating appointment",
+        });
     }
 };
+
 
 
 
@@ -179,7 +244,7 @@ export const updateAppointments = async (req: Request, res: Response) => {
     try {
         const updatedAppointment = await updateAppointmentsServices(appointmentId, {
             appointmentDate,
-            timeSlot,
+            // timeSlot,
             startTime,
             endTime,
             totalAmount,
