@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { createComplaintsServices, deleteComplaintsServices, getComplaintsByIdServices, getComplaintsByUserIdServices, getComplaintsServices, updateComplaintsServices } from "./complaints.services";
 
 //Business logic for complaints-related operations
-
+//wr
 
 export const getComplaints = async (req: Request, res: Response) => {
     try {

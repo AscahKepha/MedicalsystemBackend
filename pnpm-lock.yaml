@@ -32,6 +32,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.2
+      medicalsysytem:
+        specifier: 'link:'
+        version: 'link:'
       node-modules:
         specifier: ^1.0.1
         version: 1.0.1
