@@ -3,10 +3,10 @@ import db from "../drizzle/db";
 import {
   prescriptionsTable,
   patientsTable,
-  type TPrescriptionsSelect,
-  type TPrescriptionsInsert,
+  
 } from "../drizzle/schema";
-
+import {type TPrescriptionsSelect,
+  type TPrescriptionsInsert,} from "../drizzle/types"
 // ----------------------
 // ✅ Get ALL prescriptions with doctor, patient, and appointment info
 // ----------------------

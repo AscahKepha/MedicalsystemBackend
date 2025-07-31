@@ -1,9 +1,9 @@
 //crud operations and services
 import {eq, desc} from "drizzle-orm";
 import db from "../drizzle/db";
-import {complaintsTable, TComplaintSelect, TComplaintInsert} from "../drizzle/schema";
+import {complaintsTable, } from "../drizzle/schema";
 
-
+import { TComplaintSelect, TComplaintInsert} from "../drizzle/types"
 //CRUD Operations for complaints entity
 
 

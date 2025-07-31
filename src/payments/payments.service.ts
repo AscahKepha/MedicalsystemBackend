@@ -1,12 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 import db from "../drizzle/db";
 import {
-  TPaymentSelect,
-  TPaymentInsert,
+ 
   paymentsTable,
   appointmentsTable,
 } from "../drizzle/schema";
-
+import { TPaymentSelect,
+  TPaymentInsert,} from "../drizzle/types"
 // ✅ Get all payments
 export const getPaymentsServices = async (): Promise<TPaymentSelect[] | null> => {
   try {

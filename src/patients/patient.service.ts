@@ -1,7 +1,7 @@
 import {eq, desc} from "drizzle-orm";
 import db from "../drizzle/db"; //default export not a named so we dont use curly braces
-import {patientsTable, TPatientInsert, TPatientSelect} from "../drizzle/schema";
-
+import {patientsTable,} from "../drizzle/schema";
+ import { TPatientInsert, TPatientSelect} from "../drizzle/types"
 
 //Get all patients
 export const getPatientsServices = async():Promise<TPatientSelect[] | null>=>{

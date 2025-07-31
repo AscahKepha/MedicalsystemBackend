@@ -3,7 +3,8 @@
 //register a new user
 import { eq } from "drizzle-orm";
 import db  from "../drizzle/db";
-import { userTable, TUserInsert, TUserSelect } from "../drizzle/schema";
+import { userTable,} from "../drizzle/schema";
+import { TUserInsert, TUserSelect } from "../drizzle/types"
 
 // Create a new user
 export const createUserServices = async (user: TUserInsert): Promise<TUserSelect> => {
