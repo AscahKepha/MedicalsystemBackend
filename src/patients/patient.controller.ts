@@ -3,7 +3,7 @@ import {getPatientsServices, getPatientsByIdServices, createPatientServices, upd
 
 
 //Business logic, checking and json
-
+//business logic
 export const getPatients = async (req:Request, res:Response) =>{
     try {
         const allPatients = await getPatientsServices();
